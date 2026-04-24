@@ -34,6 +34,11 @@ router.post('/', (req, res) => {
   const { benhNhanId, bacSiId, ngayGio, ghiChu } = req.body
   const actualBacSiId = req.user?.vaiTro === 'bacSi' ? req.user.bacSiId : bacSiId
   if (!benhNhanId || !actualBacSiId || !ngayGio) return res.status(400).json({ error: 'Thiếu Thông Tin Bắt Buộc' })
+  const thuRow = db.prepare(`SELECT CAST(strftime('%w', ?) AS INTEGER) as thu`).get(ngayGio.slice(0, 10))
+  const ca = db.prepare('SELECT * FROM caLamViecMau WHERE bacSiId=? AND thuTrongTuan=?').get(actualBacSiId, thuRow.thu)
+  if (!ca) return res.status(409).json({ error: 'Bác Sĩ Không Có Ca Làm Việc Vào Ngày Này' })
+  const gio = ngayGio.slice(11, 16)
+  if (gio < ca.gioBatDau || gio >= ca.gioKetThuc) return res.status(409).json({ error: `Giờ Đặt Nằm Ngoài Ca Làm Việc (${ca.gioBatDau}–${ca.gioKetThuc})` })
   const trung = db.prepare(`SELECT id FROM lichHen WHERE bacSiId=? AND ngayGio=? AND trangThai != 'daHuy'`).get(actualBacSiId, ngayGio)
   if (trung) return res.status(409).json({ error: 'Bác Sĩ Đã Có Lịch Hẹn Vào Thời Điểm Này' })
   const result = db.prepare(`INSERT INTO lichHen (benhNhanId, bacSiId, ngayGio, ghiChu) VALUES (?, ?, ?, ?)`).run(benhNhanId, actualBacSiId, ngayGio, ghiChu)

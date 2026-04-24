@@ -134,7 +134,11 @@ export default function TaiKhoanPage() {
                       <button onClick={() => openForm(acc)} className="cursor-pointer p-1.5 text-gray-400 hover:text-green-950 transition-colors rounded hover:bg-gray-100">
                         <Pencil size={18} />
                       </button>
-                      <button onClick={() => handleDelete(acc.id)} className="cursor-pointer p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded hover:bg-red-50">
+                      <button
+                        onClick={() => handleDelete(acc.id)}
+                        disabled={acc.tenDangNhap === 'admin'}
+                        className="cursor-pointer p-1.5 text-gray-400 hover:text-red-600 transition-colors rounded hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                      >
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -173,7 +177,7 @@ export default function TaiKhoanPage() {
                 </label>
                 <input
                   type="password"
-                  required
+                  required={!formData.id}
                   value={formData.matKhau}
                   onChange={(e) => setFormData({ ...formData, matKhau: e.target.value })}
                   className="w-full rounded border border-green-950 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-950"
@@ -203,7 +207,10 @@ export default function TaiKhoanPage() {
                     className="w-full rounded border border-green-950 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-950"
                   >
                     <option value="">-- Chọn Nhân Viên --</option>
-                    {doctors.map(d => (
+                    {doctors.filter(d => {
+                      const taken = accounts.find(a => a.bacSiId === d.id && a.id !== formData.id)
+                      return !taken
+                    }).map(d => (
                       <option key={d.id} value={d.id}>{d.hoTen} ({d.loaiNhanVien === 'bacSi' ? 'Bác Sĩ' : 'Lễ Tân'})</option>
                     ))}
                   </select>

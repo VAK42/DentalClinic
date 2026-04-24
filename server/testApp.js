@@ -4,6 +4,7 @@ import cors from 'cors'
 import quanLyTaiKhoanRouter from './routes/quanLyTaiKhoan.js'
 import hoSoBenhAnRouter from './routes/hoSoBenhAn.js'
 import bangLuongRouter from './routes/bangLuong.js'
+import caLamViecRouter from './routes/caLamViec.js'
 import benhNhanRouter from './routes/benhNhan.js'
 import lichHenRouter from './routes/lichHen.js'
 import thongKeRouter from './routes/thongKe.js'
@@ -21,6 +22,7 @@ app.use(verifyToken)
 app.use('/api/taiKhoan', quanLyTaiKhoanRouter)
 app.use('/api/hoSoBenhAn', hoSoBenhAnRouter)
 app.use('/api/bangLuong', bangLuongRouter)
+app.use('/api/caLamViec', caLamViecRouter)
 app.use('/api/benhNhan', benhNhanRouter)
 app.use('/api/thongKe', thongKeRouter)
 app.use('/api/lichHen', lichHenRouter)

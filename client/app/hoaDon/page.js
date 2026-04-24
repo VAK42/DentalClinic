@@ -47,8 +47,10 @@ function HoaDonContent() {
     }
   }, [searchParams])
   const addChiTiet = () => {
-    if (!dichVuList.length) return
-    const dv = dichVuList[0]
+    const usedIds = chiTiet.map(ct => ct.dichVuId)
+    const available = dichVuList.filter(dv => !usedIds.includes(dv.id))
+    if (!available.length) return
+    const dv = available[0]
     setChiTiet((prev) => [...prev, { dichVuId: dv.id, tenDichVu: dv.tenDichVu, soLuong: 1, donGia: dv.donGia }])
   }
   const removeChiTiet = (i) => setChiTiet((prev) => prev.filter((_, idx) => idx !== i))
@@ -160,7 +162,7 @@ function HoaDonContent() {
               </div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-semibold text-gray-900">Danh Sách Dịch Vụ</span>
-                <button type="button" onClick={addChiTiet} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors">
+                <button type="button" onClick={addChiTiet} disabled={chiTiet.length >= dichVuList.length} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
                   <Plus size={14}/>Thêm Dịch Vụ
                 </button>
               </div>
@@ -168,7 +170,7 @@ function HoaDonContent() {
                 {chiTiet.map((ct, i) => (
                   <div key={i} className="flex gap-2 items-center">
                     <select className={`${inputCls} w-[50%] truncate`} value={ct.dichVuId} onChange={(e) => updateChiTiet(i, 'dichVuId', e.target.value)}>
-                      {dichVuList.map((dv) => <option key={dv.id} value={dv.id}>{dv.tenDichVu}</option>)}
+                      {dichVuList.filter(dv => !chiTiet.some((c, idx) => idx !== i && c.dichVuId === dv.id)).map((dv) => <option key={dv.id} value={dv.id}>{dv.tenDichVu}</option>)}
                     </select>
                     <input className={`${inputCls} w-[20%]`} type="number" min="1" value={ct.soLuong} onChange={(e) => updateChiTiet(i, 'soLuong', e.target.value)} placeholder="SL"/>
                     <input className={`${inputCls} w-[25%]`} type="number" value={ct.donGia} onChange={(e) => updateChiTiet(i, 'donGia', e.target.value)} placeholder="Đơn Giá"/>

@@ -119,6 +119,15 @@ db.exec(`
     createdAt TEXT DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (bacSiId) REFERENCES bacSi(id)
   );
+  CREATE TABLE IF NOT EXISTS caLamViecMau (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bacSiId INTEGER NOT NULL,
+    thuTrongTuan INTEGER NOT NULL,
+    gioBatDau TEXT NOT NULL,
+    gioKetThuc TEXT NOT NULL,
+    UNIQUE(bacSiId, thuTrongTuan),
+    FOREIGN KEY (bacSiId) REFERENCES bacSi(id)
+  );
 `)
 db.exec(`INSERT OR IGNORE INTO taiKhoan (tenDangNhap, matKhau, vaiTro) VALUES ('admin', '$2b$10$IXpj1j0J3NoVyIRLluLTdeyWpuqUrAqCW8y2BWT4mCGV1EkSSYIR.', 'admin')`)
 export default db
