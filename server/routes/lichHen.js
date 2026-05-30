@@ -31,7 +31,7 @@ router.get('/:id', (req, res) => {
   res.json(row)
 })
 router.post('/', (req, res) => {
-  const { benhNhanId, bacSiId, ngayGio, ghiChu } = req.body
+  const { benhNhanId, bacSiId, ngayGio, ghiChu, dichVu } = req.body
   const actualBacSiId = req.user?.vaiTro === 'bacSi' ? req.user.bacSiId : bacSiId
   if (!benhNhanId || !actualBacSiId || !ngayGio) return res.status(400).json({ error: 'Thiếu Thông Tin Bắt Buộc' })
   const thuRow = db.prepare(`SELECT CAST(strftime('%w', ?) AS INTEGER) as thu`).get(ngayGio.slice(0, 10))
@@ -42,7 +42,13 @@ router.post('/', (req, res) => {
   const trung = db.prepare(`SELECT id FROM lichHen WHERE bacSiId=? AND ngayGio=? AND trangThai != 'daHuy'`).get(actualBacSiId, ngayGio)
   if (trung) return res.status(409).json({ error: 'Bác Sĩ Đã Có Lịch Hẹn Vào Thời Điểm Này' })
   const result = db.prepare(`INSERT INTO lichHen (benhNhanId, bacSiId, ngayGio, ghiChu) VALUES (?, ?, ?, ?)`).run(benhNhanId, actualBacSiId, ngayGio, ghiChu)
-  res.status(201).json({ id: result.lastInsertRowid })
+  const lichHenId = result.lastInsertRowid
+  const dichVuStr = dichVu ? JSON.stringify(dichVu) : '[]'
+  db.prepare(`
+    INSERT INTO hoSoBenhAn (benhNhanId, bacSiId, lichHenId, chuanDoan, ghiChuLamSang, trangThai, dichVu, ngayKham)
+    VALUES (?, ?, ?, ?, ?, 'choKham', ?, ?)
+  `).run(benhNhanId, actualBacSiId, lichHenId, ghiChu || 'Chờ Khám', '', dichVuStr, ngayGio)
+  res.status(201).json({ id: lichHenId })
 })
 router.put('/:id', (req, res) => {
   const fields = []
@@ -57,10 +63,28 @@ router.put('/:id', (req, res) => {
   if (fields.length === 0) return res.json({ success: true })
   params.push(req.params.id)
   db.prepare(`UPDATE lichHen SET ${fields.join(', ')} WHERE id = ?`).run(...params)
+  if (req.body.bacSiId || req.body.ngayGio || req.body.trangThai || req.body.ghiChu) {
+    db.prepare(`
+      UPDATE hoSoBenhAn
+      SET 
+        bacSiId = COALESCE(?, bacSiId),
+        ngayKham = COALESCE(?, ngayKham),
+        trangThai = COALESCE(?, trangThai),
+        chuanDoan = COALESCE(?, chuanDoan)
+      WHERE lichHenId = ?
+    `).run(
+      req.body.bacSiId || null,
+      req.body.ngayGio || null,
+      req.body.trangThai || null,
+      req.body.ghiChu || null,
+      req.params.id
+    )
+  }
   res.json({ success: true })
 })
 router.delete('/:id', (req, res) => {
   db.prepare(`UPDATE lichHen SET trangThai = 'daHuy' WHERE id = ?`).run(req.params.id)
+  db.prepare(`UPDATE hoSoBenhAn SET trangThai = 'daHuy' WHERE lichHenId = ?`).run(req.params.id)
   res.json({ success: true })
 })
 export default router

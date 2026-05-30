@@ -17,6 +17,7 @@ db.exec(`
     tyLeHoaHong REAL DEFAULT 0,
     ngayBatDau TEXT,
     loaiNhanVien TEXT DEFAULT 'bacSi',
+    bangCap TEXT DEFAULT 'cuNhan',
     trangThai TEXT DEFAULT 'hoatDong',
     createdAt TEXT DEFAULT (datetime('now','localtime'))
   );
@@ -49,6 +50,9 @@ db.exec(`
     lichHenId INTEGER,
     chuanDoan TEXT,
     ghiChuLamSang TEXT,
+    trangThai TEXT DEFAULT 'choKham',
+    dichVu TEXT,
+    heSoPhucTap REAL DEFAULT 0.0,
     ngayKham TEXT DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (benhNhanId) REFERENCES benhNhan(id),
     FOREIGN KEY (bacSiId) REFERENCES bacSi(id),
@@ -79,6 +83,7 @@ db.exec(`
     tongTien REAL DEFAULT 0,
     daThanhToan REAL DEFAULT 0,
     trangThai TEXT DEFAULT 'chuaThanhToan',
+    trangThaiPhieu TEXT DEFAULT 'daXacNhan',
     ngayTao TEXT DEFAULT (datetime('now','localtime')),
     ghiChu TEXT,
     FOREIGN KEY (benhNhanId) REFERENCES benhNhan(id),
@@ -105,6 +110,12 @@ db.exec(`
     thuong REAL DEFAULT 0,
     khauTru REAL DEFAULT 0,
     tongLuong REAL DEFAULT 0,
+    soGioQuyDoi REAL DEFAULT 0,
+    heSoBacSi REAL DEFAULT 1.0,
+    tienLamThem REAL DEFAULT 0,
+    soNgayNghiPhep INTEGER DEFAULT 0,
+    soNgayNghiLe INTEGER DEFAULT 0,
+    tienTruNghiPhep REAL DEFAULT 0,
     trangThai TEXT DEFAULT 'chuaThanhToan',
     ngayTao TEXT DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (bacSiId) REFERENCES bacSi(id)
@@ -125,9 +136,24 @@ db.exec(`
     thuTrongTuan INTEGER NOT NULL,
     gioBatDau TEXT NOT NULL,
     gioKetThuc TEXT NOT NULL,
+    heSo REAL DEFAULT 1.0,
     UNIQUE(bacSiId, thuTrongTuan),
     FOREIGN KEY (bacSiId) REFERENCES bacSi(id)
   );
+  CREATE TABLE IF NOT EXISTS cauHinh (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS ngayNghi (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bacSiId INTEGER,
+    ngay TEXT NOT NULL,
+    loaiNghi TEXT NOT NULL,
+    ghiChu TEXT,
+    createdAt TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (bacSiId) REFERENCES bacSi(id)
+  );
 `)
+db.exec("INSERT OR IGNORE INTO cauHinh (key, value) VALUES ('soTienMotGioBacSi', '100000'), ('soTienMotGioLeTan', '50000')")
 db.exec(`INSERT OR IGNORE INTO taiKhoan (tenDangNhap, matKhau, vaiTro) VALUES ('admin', '$2b$10$IXpj1j0J3NoVyIRLluLTdeyWpuqUrAqCW8y2BWT4mCGV1EkSSYIR.', 'admin')`)
 export default db

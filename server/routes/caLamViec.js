@@ -7,14 +7,15 @@ router.get('/', (req, res) => {
   res.json(bacSiId ? db.prepare(query).all(bacSiId) : db.prepare(query).all())
 })
 router.post('/', (req, res) => {
-  const { bacSiId, thuTrongTuan, gioBatDau, gioKetThuc } = req.body
+  const { bacSiId, thuTrongTuan, gioBatDau, gioKetThuc, heSo } = req.body
   if (!bacSiId || thuTrongTuan === undefined || !gioBatDau || !gioKetThuc) return res.status(400).json({ error: 'Thiếu Thông Tin Bắt Buộc' })
   const existing = db.prepare('SELECT id FROM caLamViecMau WHERE bacSiId=? AND thuTrongTuan=?').get(bacSiId, thuTrongTuan)
+  const h = heSo || 1.0
   if (existing) {
-    db.prepare('UPDATE caLamViecMau SET gioBatDau=?, gioKetThuc=? WHERE id=?').run(gioBatDau, gioKetThuc, existing.id)
+    db.prepare('UPDATE caLamViecMau SET gioBatDau=?, gioKetThuc=?, heSo=? WHERE id=?').run(gioBatDau, gioKetThuc, h, existing.id)
     return res.json({ id: existing.id })
   }
-  const result = db.prepare('INSERT INTO caLamViecMau (bacSiId, thuTrongTuan, gioBatDau, gioKetThuc) VALUES (?, ?, ?, ?)').run(bacSiId, thuTrongTuan, gioBatDau, gioKetThuc)
+  const result = db.prepare('INSERT INTO caLamViecMau (bacSiId, thuTrongTuan, gioBatDau, gioKetThuc, heSo) VALUES (?, ?, ?, ?, ?)').run(bacSiId, thuTrongTuan, gioBatDau, gioKetThuc, h)
   res.status(201).json({ id: result.lastInsertRowid })
 })
 router.delete('/:id', (req, res) => {

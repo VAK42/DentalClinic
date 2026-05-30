@@ -6,6 +6,8 @@ import hoSoBenhAnRouter from './routes/hoSoBenhAn.js'
 import bangLuongRouter from './routes/bangLuong.js'
 import caLamViecRouter from './routes/caLamViec.js'
 import benhNhanRouter from './routes/benhNhan.js'
+import ngayNghiRouter from './routes/ngayNghi.js'
+import cauHinhRouter from './routes/cauHinh.js'
 import lichHenRouter from './routes/lichHen.js'
 import thongKeRouter from './routes/thongKe.js'
 import dichVuRouter from './routes/dichVu.js'
@@ -24,6 +26,8 @@ app.use('/api/hoSoBenhAn', hoSoBenhAnRouter)
 app.use('/api/bangLuong', bangLuongRouter)
 app.use('/api/caLamViec', caLamViecRouter)
 app.use('/api/benhNhan', benhNhanRouter)
+app.use('/api/ngayNghi', ngayNghiRouter)
+app.use('/api/cauHinh', cauHinhRouter)
 app.use('/api/thongKe', thongKeRouter)
 app.use('/api/lichHen', lichHenRouter)
 app.use('/api/dichVu', dichVuRouter)

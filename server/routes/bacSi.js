@@ -11,18 +11,22 @@ router.get('/:id', (req, res) => {
   res.json(row)
 })
 router.post('/', (req, res) => {
-  const { hoTen, chuyenKhoa, soDienThoai, email, luongCo, tyLeHoaHong, ngayBatDau, loaiNhanVien } = req.body
+  const { hoTen, chuyenKhoa, soDienThoai, email, luongCo, tyLeHoaHong, ngayBatDau, loaiNhanVien, bangCap } = req.body
   if (!hoTen) return res.status(400).json({ error: 'Tên Nhân Viên Là Bắt Buộc' })
+  if (soDienThoai) {
+    const exist = db.prepare('SELECT id FROM bacSi WHERE soDienThoai = ? AND trangThai != "ngungHoatDong"').get(soDienThoai)
+    if (exist) return res.status(400).json({ error: 'Số Điện Thoại Này Đã Tồn Tại' })
+  }
   const result = db.prepare(`
-    INSERT INTO bacSi (hoTen, chuyenKhoa, soDienThoai, email, luongCo, tyLeHoaHong, ngayBatDau, loaiNhanVien)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(hoTen, chuyenKhoa, soDienThoai, email, luongCo || 0, tyLeHoaHong || 0, ngayBatDau, loaiNhanVien || 'bacSi')
+    INSERT INTO bacSi (hoTen, chuyenKhoa, soDienThoai, email, luongCo, tyLeHoaHong, ngayBatDau, loaiNhanVien, bangCap)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(hoTen, chuyenKhoa, soDienThoai, email, luongCo || 0, tyLeHoaHong || 0, ngayBatDau, loaiNhanVien || 'bacSi', bangCap || 'cuNhan')
   res.status(201).json({ id: result.lastInsertRowid, hoTen })
 })
 router.put('/:id', (req, res) => {
   const fields = []
   const params = []
-  const allowed = ['hoTen', 'chuyenKhoa', 'soDienThoai', 'email', 'luongCo', 'tyLeHoaHong', 'ngayBatDau', 'trangThai', 'loaiNhanVien']
+  const allowed = ['hoTen', 'chuyenKhoa', 'soDienThoai', 'email', 'luongCo', 'tyLeHoaHong', 'ngayBatDau', 'trangThai', 'loaiNhanVien', 'bangCap']
   allowed.forEach(key => {
     if (req.body[key] !== undefined) {
       fields.push(`${key} = ?`)
@@ -30,6 +34,10 @@ router.put('/:id', (req, res) => {
     }
   })
   if (fields.length === 0) return res.json({ success: true })
+  if (req.body.soDienThoai) {
+    const exist = db.prepare('SELECT id FROM bacSi WHERE soDienThoai = ? AND id != ? AND trangThai != "ngungHoatDong"').get(req.body.soDienThoai, req.params.id)
+    if (exist) return res.status(400).json({ error: 'Số Điện Thoại Này Đã Tồn Tại' })
+  }
   params.push(req.params.id)
   db.prepare(`UPDATE bacSi SET ${fields.join(', ')} WHERE id = ?`).run(...params)
   res.json({ success: true })
