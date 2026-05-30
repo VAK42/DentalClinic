@@ -50,42 +50,42 @@ export default function ThongKePage() {
               <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-4 border border-blue-100">
                 <TrendingUp size={24} className="text-blue-600"/>
               </div>
-              <div className="text-xl font-bold text-gray-900 leading-tight">{fmtVnd(data?.phatSinh)}</div>
+              <div className="text-xl font-semibold text-gray-900 leading-tight">{fmtVnd(data?.phatSinh)}</div>
               <div className="text-sm font-medium text-gray-500 mt-1">Doanh Thu Phát Sinh</div>
             </div>
             <div className="bg-white border-2 border-green-950 rounded p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-4 border border-green-100">
                 <DollarSign size={24} className="text-green-600"/>
               </div>
-              <div className="text-xl font-bold text-gray-900 leading-tight">{fmtVnd(data?.thucThu)}</div>
+              <div className="text-xl font-semibold text-gray-900 leading-tight">{fmtVnd(data?.thucThu)}</div>
               <div className="text-sm font-medium text-gray-500 mt-1">Thực Thu (Đã Thu)</div>
             </div>
             <div className="bg-white border-2 border-green-950 rounded p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4 border border-red-100">
                 <DollarSign size={24} className="text-red-600"/>
               </div>
-              <div className="text-xl font-bold text-gray-900 leading-tight">{fmtVnd(data?.luongDaTra)}</div>
+              <div className="text-xl font-semibold text-gray-900 leading-tight">{fmtVnd(data?.luongDaTra)}</div>
               <div className="text-sm font-medium text-gray-500 mt-1">Lương Đã Trả</div>
             </div>
             <div className="bg-white border-2 border-green-950 rounded p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mb-4 border border-emerald-100">
                 <TrendingUp size={24} className="text-emerald-600"/>
               </div>
-              <div className="text-xl font-bold text-gray-900 leading-tight">{fmtVnd(data?.loiNhuanRong)}</div>
+              <div className="text-xl font-semibold text-gray-900 leading-tight">{fmtVnd(data?.loiNhuanRong)}</div>
               <div className="text-sm font-medium text-gray-500 mt-1">Lợi Nhuận Ròng</div>
             </div>
             <div className="bg-white border-2 border-green-950 rounded p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mb-4 border border-indigo-100">
                 <Users size={24} className="text-indigo-600"/>
               </div>
-              <div className="text-xl font-bold text-gray-900 leading-tight">{data?.benhNhanMoi || 0}</div>
+              <div className="text-xl font-semibold text-gray-900 leading-tight">{data?.benhNhanMoi || 0}</div>
               <div className="text-sm font-medium text-gray-500 mt-1">Tổng Bệnh Nhân</div>
             </div>
             <div className="bg-white border-2 border-green-950 rounded p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <div className="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center mb-4 border border-purple-100">
                 <Stethoscope size={24} className="text-purple-600"/>
               </div>
-              <div className="text-xl font-bold text-gray-900 leading-tight">{data?.nhanSuHoatDong || 0}</div>
+              <div className="text-xl font-semibold text-gray-900 leading-tight">{data?.nhanSuHoatDong || 0}</div>
               <div className="text-sm font-medium text-gray-500 mt-1">Nhân Sự Hoạt Động</div>
             </div>
           </>

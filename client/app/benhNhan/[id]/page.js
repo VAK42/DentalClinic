@@ -1,7 +1,7 @@
 'use client'
-import { Sparkles, Printer, FileText, Plus, Receipt } from 'lucide-react'
+import { Sparkles, Printer, FileText, Plus, Receipt, Eye, FilePen, X, Star } from 'lucide-react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import mainLayoutComp from '../../../components/mainLayout'
 import odontogramComp from '../../../components/odontogram'
 import api from '../../../lib/api'
@@ -17,7 +17,7 @@ export default function BenhNhanDetailPage() {
   const [showModal, setShowModal] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [rang, setRang] = useState([])
-  const [form, setForm] = useState({ bacSiId: '', chuanDoan: '', ghiChuLamSang: '' })
+  const [form, setForm] = useState({ bacSiId: '', chuanDoan: '', ghiChuLamSang: '', heSoPhucTap: 0.0 })
   const [saving, setSaving] = useState(false)
   const [selectedHoSo, setSelectedHoSo] = useState(null)
   const [reportModal, setReportModal] = useState(false)
@@ -25,6 +25,22 @@ export default function BenhNhanDetailPage() {
   const [reportAdvice, setReportAdvice] = useState('')
   const [reportAdviceLoading, setReportAdviceLoading] = useState(false)
   const [user, setUser] = useState(null)
+  const [selectedHoSoId, setSelectedHoSoId] = useState(null)
+  const [chiTiet, setChiTiet] = useState([])
+  const [dichVuList, setDichVuList] = useState([])
+  const autoOpened = useRef(false)
+  const openKham = useCallback(async (hs) => {
+    setSelectedHoSoId(hs.id)
+    setForm({ bacSiId: hs.bacSiId, chuanDoan: hs.chuanDoan || '', ghiChuLamSang: hs.ghiChuLamSang || '', heSoPhucTap: hs.heSoPhucTap || 0.0 })
+    setChiTiet(hs.dichVu || [])
+    try {
+      const r = await api.get(`/hoSoBenhAn/${hs.id}`)
+      setRang(r.data.tinhTrangRang || [])
+    } catch {
+      setRang([])
+    }
+    setShowModal(true)
+  }, [])
   const load = useCallback(() => {
     api.get(`/benhNhan/${id}`).then((r) => setBn(r.data))
     api.get(`/hoSoBenhAn/benhNhan/${id}`).then((r) => setHoSo(r.data))
@@ -34,10 +50,43 @@ export default function BenhNhanDetailPage() {
     load()
     const stored = localStorage.getItem('user')
     if (stored) setUser(JSON.parse(stored))
-    if (searchParams.get('mode') === 'kham') {
-      setShowModal(true)
+    api.get('/dichVu').then((r) => setDichVuList(r.data.filter((d) => d.trangThai === 'hoatDong')))
+  }, [load])
+  useEffect(() => {
+    const lhId = searchParams.get('lichHenId')
+    if (searchParams.get('mode') === 'kham' && lhId && hoSo.length > 0 && !autoOpened.current) {
+      const found = hoSo.find(hs => hs.lichHenId === parseInt(lhId))
+      if (found) {
+        autoOpened.current = true
+        openKham(found)
+        router.replace(`/benhNhan/${id}`)
+      }
     }
-  }, [load, searchParams])
+  }, [searchParams, hoSo, id, router, openKham])
+  const addChiTiet = () => {
+    const usedIds = chiTiet.map(ct => ct.dichVuId)
+    const available = dichVuList.filter(dv => !usedIds.includes(dv.id))
+    if (!available.length) return
+    const dv = available[0]
+    setChiTiet((prev) => [...prev, { dichVuId: dv.id, tenDichVu: dv.tenDichVu, soLuong: 1, donGia: dv.donGia }])
+  }
+  const removeChiTiet = (i) => setChiTiet((prev) => prev.filter((_, idx) => idx !== i))
+  const updateChiTiet = (i, field, val) => {
+    setChiTiet((prev) => {
+      const updated = [...prev]
+      if (field === 'dichVuId') {
+        const dv = dichVuList.find((d) => d.id === parseInt(val))
+        updated[i] = { ...updated[i], dichVuId: parseInt(val), tenDichVu: dv?.tenDichVu, donGia: dv?.donGia || 0 }
+      } else { updated[i] = { ...updated[i], [field]: field === 'soLuong' ? parseInt(val) : parseFloat(val) } }
+      return updated
+    })
+  }
+  const closeModal = () => {
+    setShowModal(false)
+    if (searchParams.get('mode') === 'kham') {
+      router.replace(`/benhNhan/${id}`)
+    }
+  }
   const handleSaveHoSo = async () => {
     if (!form.bacSiId && user?.vaiTro !== 'bacSi') return alert('Vui Lòng Chọn Bác Sĩ')
     setSaving(true)
@@ -46,11 +95,17 @@ export default function BenhNhanDetailPage() {
         ...form, 
         benhNhanId: id, 
         tinhTrangRang: rang,
-        lichHenId: searchParams.get('lichHenId') || null
+        lichHenId: searchParams.get('lichHenId') || null,
+        trangThai: selectedHoSoId ? (user?.vaiTro === 'leTan' ? 'choKham' : 'daKham') : 'choKham',
+        dichVu: chiTiet
       }
       if (user?.vaiTro === 'bacSi') payload.bacSiId = user.bacSiId
-      await api.post('/hoSoBenhAn', payload)
-      setShowModal(false); setRang([]); setForm((prev) => ({ ...prev, chuanDoan: '', ghiChuLamSang: '' })); load()
+      if (selectedHoSoId) {
+        await api.put(`/hoSoBenhAn/${selectedHoSoId}`, payload)
+      } else {
+        await api.post('/hoSoBenhAn', payload)
+      }
+      closeModal(); setSelectedHoSoId(null); setRang([]); setForm({ bacSiId: '', chuanDoan: '', ghiChuLamSang: '' }); setChiTiet([]); load()
     } finally { setSaving(false) }
   }
   const handleAiNote = async (e) => {
@@ -84,7 +139,7 @@ export default function BenhNhanDetailPage() {
   return (
     <div className="relative">
       <div className="print:hidden">
-        <MainLayout title={bn.hoTen} actions={user?.vaiTro !== 'leTan' && (<button onClick={() => setShowModal(true)} className="cursor-pointer inline-flex items-center gap-2 rounded border-2 border-green-950 bg-green-950 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950"><Plus size={16}/>Tạo Hồ Sơ Khám</button>)}>
+        <MainLayout title={bn.hoTen} actions={<button onClick={() => router.push('/lichHen?benhNhanId=' + id)} className="cursor-pointer inline-flex items-center gap-2 rounded border-2 border-green-950 bg-green-950 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950"><Plus size={16}/>Tạo Phiếu Khám</button>}>
           <div className="grid grid-cols-2 gap-5 mb-5">
             <div className="bg-white border-2 border-green-950 rounded p-6 shadow-sm hover:shadow-lg transition-shadow duration-300">
               <div className="text-base font-semibold text-gray-900 mb-4 border-b border-gray-100 pb-2">Thông Tin Cá Nhân</div>
@@ -120,27 +175,36 @@ export default function BenhNhanDetailPage() {
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 text-gray-500">
                       <th className="px-6 py-4 text-xs font-semibold tracking-wider">Ngày Khám</th>
-                      <th className="px-6 py-4 text-xs font-semibold tracking-wider">Bác Sĩ Điều Trị</th>
+                      <th className="px-6 py-4 text-xs font-semibold tracking-wider">Bác Sĩ</th>
                       <th className="px-6 py-4 text-xs font-semibold tracking-wider">Chẩn Đoán</th>
-                      <th className="px-6 py-4 text-xs font-semibold tracking-wider">Ghi Chú Lâm Sàng</th>
+                      <th className="px-6 py-4 text-xs font-semibold tracking-wider">Trạng Thái</th>
                       <th className="px-6 py-4 text-xs font-semibold tracking-wider text-right">Thao Tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {hoSo.map((hs) => (
-                      <tr key={hs.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm text-gray-500">{hs.ngayKham?.slice(0, 16)}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{hs.tenBacSi}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-green-950">{hs.chuanDoan || '—'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">{hs.ghiChuLamSang || '—'}</td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => openReport(hs)} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors"><FileText size={14}/>Báo Cáo</button>
-                            {user?.vaiTro !== 'bacSi' && (<button onClick={() => router.push(`/hoaDon?hoSoId=${hs.id}&benhNhanId=${id}&bacSiId=${hs.bacSiId}`)} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded transition-colors border border-green-200"><Receipt size={14}/>Lập Hóa Đơn</button>)}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {hoSo.map((hs) => {
+                      const isChoKham = hs.trangThai === 'choKham'
+                      return (
+                        <tr key={hs.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 text-sm text-gray-500">{hs.ngayKham?.slice(0, 16)}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">{hs.tenBacSi}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-green-950">{hs.chuanDoan || '—'}</td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${isChoKham ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+                              {isChoKham ? 'Chờ Khám' : 'Đã Khám'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {!isChoKham && (<button onClick={() => openReport(hs)} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors"><FileText size={14}/>Báo Cáo</button>)}
+                              {isChoKham && (user?.vaiTro === 'bacSi' || user?.vaiTro === 'admin') && (<button onClick={() => openKham(hs)} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold rounded transition-colors border border-blue-200"><FilePen size={14}/>Khám</button>)}
+                              {isChoKham && (user?.vaiTro === 'leTan' || user?.vaiTro === 'admin') && (<button onClick={() => openKham(hs)} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold rounded transition-colors border border-amber-200"><FilePen size={14}/>Sửa</button>)}
+                              {!isChoKham && user?.vaiTro !== 'bacSi' && (<button onClick={() => router.push(`/hoaDon?hoSoId=${hs.id}&benhNhanId=${id}&bacSiId=${hs.bacSiId}`)} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded transition-colors border border-green-200"><Receipt size={14}/>Lập Hóa Đơn</button>)}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -149,14 +213,82 @@ export default function BenhNhanDetailPage() {
           {showModal && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="bg-white border-2 border-green-950 rounded p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100"><h2 className="text-xl font-semibold text-gray-900">Tạo Hồ Sơ Khám Bệnh - {bn.hoTen}</h2><button onClick={() => setShowModal(false)} className="cursor-pointer w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-900 transition-colors">✕</button></div>
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                  <h2 className="text-xl font-semibold text-gray-900">{selectedHoSoId ? 'Cập Nhật Phiếu Khám' : 'Tạo Phiếu Khám Mới'} — {bn.hoTen}</h2>
+                  <button onClick={closeModal} className="cursor-pointer w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-900 transition-colors">✕</button>
+                </div>
                 <div className="grid grid-cols-2 gap-5 mb-6">
                   {user?.vaiTro !== 'bacSi' && (<div><label className={labelCls}>Bác Sĩ Phụ Trách *</label><select required className={inputCls} value={form.bacSiId} onChange={f('bacSiId')}><option value="">Chọn Bác Sĩ</option>{bacSiList.map((bs) => <option key={bs.id} value={bs.id}>{bs.hoTen}</option>)}</select></div>)}
-                  <div className={user?.vaiTro === 'bacSi' ? 'col-span-2' : ''}><label className={labelCls}>Chẩn Đoán Hiện Tại *</label><input required className={inputCls} value={form.chuanDoan} onChange={f('chuanDoan')} placeholder="Nhập Chẩn Đoán Tóm Tắt..."/></div>
+                  <div className={user?.vaiTro === 'bacSi' ? 'col-span-1' : ''}><label className={labelCls}>Chẩn Đoán Hiện Tại / Sơ Bộ *</label><input required className={inputCls} value={form.chuanDoan} onChange={f('chuanDoan')} placeholder="Nhập Chẩn Đoán Tóm Tắt..."/></div>
+                  {user?.vaiTro === 'bacSi' && (
+                    <div>
+                      <label className={labelCls}>Độ Phức Tạp Ca Bệnh</label>
+                      <div className="flex items-center gap-2 mt-2">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Star 
+                            key={star} 
+                            size={24} 
+                            className={`cursor-pointer transition-colors ${form.heSoPhucTap >= star * 0.1 ? 'fill-amber-400 text-amber-400' : 'text-gray-300 hover:text-amber-200'}`}
+                            onClick={() => setForm(p => ({ ...p, heSoPhucTap: p.heSoPhucTap === star * 0.1 ? 0 : star * 0.1 }))}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="mb-6 bg-gray-50 border border-gray-100 rounded p-5"><div className="flex items-center justify-between mb-4"><label className="text-sm font-semibold text-gray-900">Sơ Đồ Răng Khám</label><button type="button" onClick={handleAiNote} disabled={aiLoading} className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-semibold border border-green-200 rounded transition-colors disabled:opacity-50"><Sparkles size={16}/>{aiLoading ? 'Trợ Lý AI Đang Soạn...' : 'AI Khởi Tạo Ghi Chú'}</button></div><div className="bg-white p-4 rounded border border-gray-100"><OdontogramComp data={rang} onChange={setRang}/></div></div>
-                <div className="mb-6"><label className={labelCls}>Ghi Chú Lâm Sàng & Phác Đồ *</label><textarea required className={inputCls} rows={5} value={form.ghiChuLamSang} onChange={f('ghiChuLamSang')} placeholder="Nhập Chi Tiết Ghi Chú Quá Trình Khám Hoặc Điều Trị..."/></div>
-                <div className="flex justify-end gap-3 pt-5 border-t border-gray-100"><button onClick={() => setShowModal(false)} className="cursor-pointer px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Hủy Bỏ</button><button type="button" onClick={handleSaveHoSo} disabled={saving} className="cursor-pointer rounded border-2 border-green-950 bg-green-950 px-6 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950 disabled:opacity-50">{saving ? 'Đang Lưu...' : 'Lưu Hồ Sơ Khám Của Bệnh Nhân'}</button></div>
+                <div className="mb-6 bg-white border border-gray-200 rounded p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="text-sm font-semibold text-gray-900">Dịch Vụ Chỉ Định / Sử Dụng</label>
+                    <button type="button" onClick={addChiTiet} disabled={chiTiet.length >= dichVuList.length} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                      <Plus size={14}/>Thêm Dịch Vụ
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {chiTiet.map((ct, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <select className={`${inputCls} w-[50%] truncate`} value={ct.dichVuId} onChange={(e) => updateChiTiet(i, 'dichVuId', e.target.value)}>
+                          {dichVuList.filter(dv => !chiTiet.some((c, idx) => idx !== i && c.dichVuId === dv.id)).map(dv => <option key={dv.id} value={dv.id}>{dv.tenDichVu}</option>)}
+                        </select>
+                        <input className={`${inputCls} w-[15%]`} type="number" min="1" value={ct.soLuong} onChange={(e) => updateChiTiet(i, 'soLuong', e.target.value)} placeholder="SL"/>
+                        <input className={`${inputCls} w-[25%]`} type="number" value={ct.donGia} onChange={(e) => updateChiTiet(i, 'donGia', e.target.value)} placeholder="Đơn Giá"/>
+                        <button type="button" onClick={() => removeChiTiet(i)} className="cursor-pointer p-2 text-red-500 hover:bg-red-50 rounded transition-colors shrink-0">
+                          <X size={18}/>
+                        </button>
+                      </div>
+                    ))}
+                    {chiTiet.length === 0 && <div className="text-sm text-gray-400 py-2 text-center">Chưa Chọn Dịch Vụ Nào</div>}
+                  </div>
+                  {chiTiet.length > 0 && (
+                    <div className="text-right text-base font-semibold text-green-950 mt-4 border-t border-gray-100 pt-3">
+                      Tạm Tính: {new Intl.NumberFormat('vi-VN').format(chiTiet.reduce((s, c) => s + c.soLuong * c.donGia, 0)) + ' ₫'}
+                    </div>
+                  )}
+                </div>
+                {user?.vaiTro !== 'leTan' && (
+                  <>
+                    <div className="mb-6 bg-gray-50 border border-gray-100 rounded p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <label className="text-sm font-semibold text-gray-900">Sơ Đồ Răng Khám</label>
+                        <button type="button" onClick={handleAiNote} disabled={aiLoading} className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 text-sm font-semibold border border-green-200 rounded transition-colors disabled:opacity-50">
+                          <Sparkles size={16}/>{aiLoading ? 'Trợ Lý AI Đang Soạn...' : 'AI Khởi Tạo Ghi Chú'}
+                        </button>
+                      </div>
+                      <div className="bg-white p-4 rounded border border-gray-100">
+                        <OdontogramComp data={rang} onChange={setRang}/>
+                      </div>
+                    </div>
+                    <div className="mb-6">
+                      <label className={labelCls}>Ghi Chú Lâm Sàng & Phác Đồ *</label>
+                      <textarea required className={inputCls} rows={5} value={form.ghiChuLamSang} onChange={f('ghiChuLamSang')} placeholder="Nhập Chi Tiết Ghi Chú Quá Trình Khám Hoặc Điều Trị..."/>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
+                  <button onClick={closeModal} className="cursor-pointer px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Hủy Bỏ</button>
+                  <button type="button" onClick={handleSaveHoSo} disabled={saving} className="cursor-pointer rounded border-2 border-green-950 bg-green-950 px-6 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950 disabled:opacity-50">
+                    {saving ? 'Đang Lưu...' : selectedHoSoId ? (user?.vaiTro === 'leTan' ? 'Lưu Thay Đổi' : 'Lưu & Hoàn Tất Khám') : 'Lưu Phiếu Khám'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -205,7 +337,7 @@ export default function BenhNhanDetailPage() {
           </div>
           <div className="mb-4">
             <h2 className="text-sm font-medium text-white bg-green-950 px-3 py-1 inline-block mb-3 tracking-wide italic">II. Kết Quả Chẩn Đoán & Điều Trị</h2>
-            <div className="border-2 border-green-950/10 p-4 rounded-lg space-y-4 bg-white overflow-hidden relative"><div className="absolute top-0 bottom-0 left-0 w-1 bg-green-900/20"/><div><h3 className="text-[9px] font-medium text-green-950 tracking-widest mb-1 border-b border-green-950/20 inline-block">Chẩn Đoán</h3><p className="text-sm font-medium text-gray-900 leading-relaxed">{selectedHoSo.chuanDoan || 'Không Có Dữ Liệu'}</p></div><div><h3 className="text-[9px] font-medium text-green-950 tracking-widest mb-1 border-b border-green-950/20 inline-block">Nội Dung Thực Hiện</h3><p className="text-xs leading-relaxed text-gray-700 italic bg-gray-50 p-3 rounded border-l-2 border-green-950/30">{selectedHoSo.ghiChuLamSang || 'Không Có Dữ Liệu'}</p></div></div>
+            <div className="border-2 border-green-950/10 p-4 rounded-lg bg-white overflow-hidden relative"><div className="absolute top-0 bottom-0 left-0 w-1 bg-green-900/20"/><div><h3 className="text-[9px] font-medium text-green-950 tracking-widest mb-1 border-b border-green-950/20 inline-block">Chẩn Đoán</h3><p className="text-sm font-medium text-gray-900 leading-relaxed">{selectedHoSo.chuanDoan || 'Không Có Dữ Liệu'}</p></div><div className="mt-4"><h3 className="text-[9px] font-medium text-green-950 tracking-widest mb-1 border-b border-green-950/20 inline-block">Nội Dung Thực Hiện</h3><p className="text-xs leading-relaxed text-gray-700 italic bg-gray-50 p-3 rounded border-l-2 border-green-950/30">{selectedHoSo.ghiChuLamSang || 'Không Có Dữ Liệu'}</p></div></div>
           </div>
           <div className="mb-4">
             <h2 className="text-sm font-medium text-white bg-green-950 px-3 py-1 inline-block mb-3 tracking-wide italic">III. Lời Khuyên & Chỉ Định</h2>

@@ -64,14 +64,14 @@ export default function OdontogramComp({ data = [], onChange, readOnly = false }
       <div className="bg-gray-50 border-2 border-gray-100 rounded p-5 overflow-x-auto shadow-inner">
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-1">
-            <span className="text-[11px] font-bold text-gray-500 w-16 flex-shrink-0 uppercase tracking-wider">HÀM TRÊN</span>
+            <span className="text-[11px] font-semibold text-gray-500 w-16 flex-shrink-0 uppercase tracking-wider">HÀM TRÊN</span>
             <div className="flex gap-1">{upperRight.map((n) => toothSvg(n, getStatus(n), handleToothClick))}</div>
             <div className="w-px bg-green-950/20 self-stretch mx-2 rounded-full"/>
             <div className="flex gap-1">{upperLeft.map((n) => toothSvg(n, getStatus(n), handleToothClick))}</div>
           </div>
           <div className="w-full h-px bg-gray-200 my-2 rounded-full"/>
           <div className="flex items-center gap-1">
-            <span className="text-[11px] font-bold text-gray-500 w-16 flex-shrink-0 uppercase tracking-wider">HÀM DƯỚI</span>
+            <span className="text-[11px] font-semibold text-gray-500 w-16 flex-shrink-0 uppercase tracking-wider">HÀM DƯỚI</span>
             <div className="flex gap-1">{lowerRight.map((n) => toothSvg(n, getStatus(n), handleToothClick))}</div>
             <div className="w-px bg-green-950/20 self-stretch mx-2 rounded-full"/>
             <div className="flex gap-1">{lowerLeft.map((n) => toothSvg(n, getStatus(n), handleToothClick))}</div>

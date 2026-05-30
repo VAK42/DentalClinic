@@ -12,7 +12,9 @@ import {
   BarChart3,
   LogOut,
   UserCog,
-  Smile
+  Smile,
+  Settings,
+  CalendarOff
 } from 'lucide-react'
 const allNavGroups = [
   {
@@ -33,6 +35,7 @@ const allNavGroups = [
     roles: ['admin'],
     items: [
       { href: '/bacSi', label: 'Nhân Sự', icon: Stethoscope },
+      { href: '/ngayNghi', label: 'Ngày Nghỉ', icon: CalendarOff },
       { href: '/dichVu', label: 'Dịch Vụ & Phí', icon: Activity },
     ],
   },
@@ -41,6 +44,7 @@ const allNavGroups = [
     roles: ['admin'],
     items: [
       { href: '/taiKhoan', label: 'Tài Khoản', icon: UserCog },
+      { href: '/cauHinh', label: 'Cấu Hình', icon: Settings },
     ],
   },
   {
@@ -49,7 +53,15 @@ const allNavGroups = [
     items: [
       { href: '/hoaDon', label: 'Hóa Đơn', icon: Receipt, roles: ['admin', 'leTan'] },
       { href: '/bangLuong', label: 'Bảng Lương', icon: Wallet, roles: ['admin', 'bacSi', 'leTan'] },
-      { href: '/thongKe', label: 'Báo Cáo & Thống Kê', icon: BarChart3, roles: ['admin'] },
+      { 
+        href: '/thongKe', 
+        label: 'Thống Kê', 
+        icon: BarChart3, 
+        roles: ['admin', 'bacSi', 'leTan'],
+        subItems: [
+          { href: '/thongKe/luong', label: 'Báo Cáo Lương', roles: ['admin', 'bacSi', 'leTan'] }
+        ]
+      },
     ],
   },
 ]
@@ -60,7 +72,14 @@ export default function sidebarComp({ user, onLogout }) {
     .filter(g => g.roles.includes(user.vaiTro))
     .map(g => ({
       ...g,
-      items: g.items.filter(item => !item.roles || item.roles.includes(user.vaiTro))
+      items: g.items
+        .filter(item => !item.roles || item.roles.includes(user.vaiTro))
+        .map(item => {
+          if (item.subItems) {
+            return { ...item, subItems: item.subItems.filter(sub => !sub.roles || sub.roles.includes(user.vaiTro)) }
+          }
+          return item
+        })
     }))
     .filter(g => g.items.length > 0)
   const roleDisplay = {
@@ -75,7 +94,7 @@ export default function sidebarComp({ user, onLogout }) {
           <Smile className="text-white" size={22} />
         </div>
         <div className="leading-tight">
-          <div className="text-base font-bold text-gray-900">Dental<span className="text-green-950">Clinic</span></div>
+          <div className="text-base font-semibold text-gray-900">Dental<span className="text-green-950">Clinic</span></div>
           <div className="text-xs font-medium text-gray-500">{roleDisplay} - {user.tenDangNhap}</div>
         </div>
       </div>
@@ -85,16 +104,33 @@ export default function sidebarComp({ user, onLogout }) {
             <div className="text-[11px] font-semibold text-gray-400 tracking-wider px-3 mb-3">{group.label}</div>
             {group.items.map((item) => {
               const Icon = item.icon
-              const isActive = pathname.startsWith(item.href)
+              const isActive = item.href === '/thongKe' ? pathname === '/thongKe' : pathname.startsWith(item.href)
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all mb-1 ${isActive ? 'bg-green-950/10 text-green-950' : 'text-gray-600 hover:bg-gray-100 hover:text-green-950'}`}
-                >
-                  <Icon size={18} className={isActive ? 'text-green-950' : 'text-gray-400'} />
-                  {item.label}
-                </Link>
+                <div key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-all mb-1 ${isActive ? 'bg-green-950/10 text-green-950' : 'text-gray-600 hover:bg-gray-100 hover:text-green-950'}`}
+                  >
+                    <Icon size={18} className={isActive ? 'text-green-950' : 'text-gray-400'} />
+                    {item.label}
+                  </Link>
+                  {item.subItems && item.subItems.length > 0 && (
+                    <div className="flex flex-col gap-1 ml-4 border-l border-gray-200 pl-4 mt-1 mb-2">
+                      {item.subItems.map(sub => {
+                        const isSubActive = pathname.startsWith(sub.href)
+                        return (
+                          <Link
+                            key={sub.href}
+                            href={sub.href}
+                            className={`block py-1.5 text-xs font-medium transition-all ${isSubActive ? 'text-green-950' : 'text-gray-500 hover:text-green-950'}`}
+                          >
+                            {sub.label}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>

@@ -21,7 +21,7 @@ export default function BangLuongPage() {
   const handleCalc = async (e) => {
     e.preventDefault()
     setCalculating(true); setResults([])
-    try { const r = await api.post('/bangLuong/tinhTatCa', form); setResults(r.data); load() } catch (e) { alert(e.response?.data?.error || 'Lỗi') } finally { setCalculating(false) }
+    try { await api.post('/bangLuong/tinhTatCa', form); load(); setCalcModal(false) } catch (e) { alert(e.response?.data?.error || 'Lỗi') } finally { setCalculating(false) }
   }
   const handlePay = async (id) => { if (!confirm('Xác Nhận Đã Thanh Toán Lương?')) return; await api.put(`/bangLuong/${id}/thanhToan`); load() }
   const f = (k) => (e) => setForm((prev) => ({ ...prev, [k]: e.target.value }))
@@ -56,8 +56,9 @@ export default function BangLuongPage() {
                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Tháng/Năm</th>
                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Nhân Viên</th>
                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Lương Cứng</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Hoa Hồng</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Tổng Lương</th>
+                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Tiền Ca (Làm Thêm)</th>
+                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Khấu Trừ Lương</th>
+                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Tổng Nhận</th>
                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Trạng Thái</th>
                   {user?.vaiTro === 'admin' && <th className="px-6 py-4 text-xs font-semibold tracking-wider text-right">Thao Tác</th>}
                 </tr>
@@ -68,7 +69,11 @@ export default function BangLuongPage() {
                     <td className="px-6 py-4 text-sm font-semibold">{bl.thang}/{bl.nam}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{bl.tenBacSi}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{fmtVnd(bl.luongCo)}</td>
-                    <td className="px-6 py-4 text-sm text-green-600">{fmtVnd(bl.hoaHong)}</td>
+                    <td className="px-6 py-4 text-sm text-blue-600">
+                      <div className="text-xs text-gray-500 mb-0.5">Quy Đổi: {bl.soGioQuyDoi?.toFixed(1) || 0}h</div>
+                      <div className="text-sm font-medium">{fmtVnd(bl.tienLamThem || 0)}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-red-600">-{fmtVnd(bl.tienTruNghiPhep || 0)}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-green-950">{fmtVnd(bl.tongLuong)}</td>
                     <td className="px-6 py-4"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${bl.trangThai === 'daThanhToan' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{bl.trangThai === 'daThanhToan' ? 'Đã Thanh Toán' : 'Chưa Trả'}</span></td>
                     {user?.vaiTro === 'admin' && (
@@ -99,31 +104,7 @@ export default function BangLuongPage() {
                 <div><label className={labelCls}>Tháng</label><select className={inputCls} value={form.thang} onChange={f('thang')}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>)}</select></div>
                 <div><label className={labelCls}>Năm</label><input required className={inputCls} type="number" value={form.nam} onChange={f('nam')}/></div>
               </div>
-              {results.length > 0 && (
-                <div className="mb-6 border border-gray-100 rounded overflow-hidden">
-                  <div className="bg-green-50 px-4 py-2.5 border-b border-green-100">
-                    <span className="text-sm font-semibold text-green-900">Kết Quả — {results.length} Nhân Viên</span>
-                  </div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-100 bg-gray-50 text-gray-500">
-                        <th className="px-4 py-2.5 text-xs font-semibold text-left">Nhân Viên</th>
-                        <th className="px-4 py-2.5 text-xs font-semibold text-right">Hoa Hồng</th>
-                        <th className="px-4 py-2.5 text-xs font-semibold text-right">Tổng Lương</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.map((r, i) => (
-                        <tr key={i} className="border-b border-gray-50 last:border-0">
-                          <td className="px-4 py-2.5 font-medium text-gray-900">{r.hoTen}</td>
-                          <td className="px-4 py-2.5 text-right text-green-600">{fmtVnd(r.hoaHong)}</td>
-                          <td className="px-4 py-2.5 text-right font-semibold text-green-950">{fmtVnd(r.tongLuong)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+
               <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
                 <button type="button" onClick={() => setCalcModal(false)} className="cursor-pointer px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Đóng</button>
                 <button type="submit" disabled={calculating} className="cursor-pointer inline-flex items-center gap-2 rounded border-2 border-green-950 bg-green-950 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950 disabled:opacity-50">

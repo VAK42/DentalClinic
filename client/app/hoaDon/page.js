@@ -1,5 +1,5 @@
 'use client'
-import { Plus, Receipt, Eye, CreditCard, X } from 'lucide-react'
+import { Plus, Receipt, Eye, CreditCard, X, Send, CheckCircle, FilePen } from 'lucide-react'
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import mainLayoutComp from '../../components/mainLayout'
@@ -9,6 +9,11 @@ const trangThaiMap = {
   chuaThanhToan: { label: 'Chưa TT', cls: 'bg-red-100 text-red-800' },
   thanhToanMot: { label: 'Một Phần', cls: 'bg-amber-100 text-amber-800' },
   daThanhToan: { label: 'Đã TT', cls: 'bg-green-100 text-green-800' },
+}
+const giaiDoanMap = {
+  nhapPhieu: { label: 'Đang Soạn', cls: 'bg-slate-100 text-slate-700' },
+  choBacSi: { label: 'Chờ Bác Sĩ', cls: 'bg-amber-100 text-amber-800' },
+  daXacNhan: { label: 'Đã Xác Nhận', cls: 'bg-teal-100 text-teal-800' },
 }
 function HoaDonContent() {
   const searchParams = useSearchParams()
@@ -25,6 +30,9 @@ function HoaDonContent() {
   const [chiTiet, setChiTiet] = useState([])
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
+  const [editModal, setEditModal] = useState(null)
+  const [editChiTiet, setEditChiTiet] = useState([])
+  const [editSaving, setEditSaving] = useState(false)
   const load = () => { setLoading(true); api.get('/hoaDon').then((r) => { setList(r.data); setLoading(false) }) }
   useEffect(() => { 
     load() 
@@ -42,7 +50,13 @@ function HoaDonContent() {
     const bacSiId = searchParams.get('bacSiId')
     if (hoSoId && benhNhanId && bacSiId) {
       setForm({ benhNhanId: parseInt(benhNhanId), bacSiId: parseInt(bacSiId), hoSoId: parseInt(hoSoId), ghiChu: '' })
-      setChiTiet([])
+      api.get(`/hoSoBenhAn/${hoSoId}`).then((r) => {
+        if (r.data && r.data.dichVu) {
+          setChiTiet(r.data.dichVu)
+        } else {
+          setChiTiet([])
+        }
+      }).catch(() => setChiTiet([]))
       setShowModal(true)
     }
   }, [searchParams])
@@ -81,6 +95,41 @@ function HoaDonContent() {
     setPayModal(null); load()
   }
   const openDetail = (id) => api.get(`/hoaDon/${id}`).then((r) => setShowDetail(r.data))
+  const handleGuiBacSi = async (id) => { if (!confirm('Gửi Hóa Đơn Này Cho Bác Sĩ Xem Và Xác Nhận?')) return; await api.put(`/hoaDon/${id}/guiBacSi`); load() }
+  const handleXacNhan = async (id) => { if (!confirm('Xác Nhận Danh Sách Dịch Vụ Và Chuyển Sang Thu Tiền?')) return; await api.put(`/hoaDon/${id}/xacNhan`); load() }
+  const openEditServices = async (hd) => {
+    const r = await api.get(`/hoaDon/${hd.id}`)
+    setEditChiTiet(r.data.chiTiet.map(ct => ({ dichVuId: ct.dichVuId, tenDichVu: ct.tenDichVu, soLuong: ct.soLuong, donGia: ct.donGia })))
+    setEditModal(hd)
+  }
+  const addEditChiTiet = () => {
+    const usedIds = editChiTiet.map(ct => ct.dichVuId)
+    const available = dichVuList.filter(dv => !usedIds.includes(dv.id))
+    if (!available.length) return
+    const dv = available[0]
+    setEditChiTiet(prev => [...prev, { dichVuId: dv.id, tenDichVu: dv.tenDichVu, soLuong: 1, donGia: dv.donGia }])
+  }
+  const removeEditChiTiet = (i) => setEditChiTiet(prev => prev.filter((_, idx) => idx !== i))
+  const updateEditChiTiet = (i, field, val) => {
+    setEditChiTiet(prev => {
+      const updated = [...prev]
+      if (field === 'dichVuId') {
+        const dv = dichVuList.find(d => d.id === parseInt(val))
+        updated[i] = { ...updated[i], dichVuId: parseInt(val), tenDichVu: dv?.tenDichVu, donGia: dv?.donGia || 0 }
+      } else { updated[i] = { ...updated[i], [field]: field === 'soLuong' ? parseInt(val) : parseFloat(val) } }
+      return updated
+    })
+  }
+  const handleSaveEditChiTiet = async (xacNhan = false) => {
+    if (!editChiTiet.length) return alert('Cần Ít Nhất 1 Dịch Vụ')
+    setEditSaving(true)
+    try {
+      await api.put(`/hoaDon/${editModal.id}/suaChiTiet`, { chiTiet: editChiTiet })
+      if (xacNhan) await api.put(`/hoaDon/${editModal.id}/xacNhan`)
+      setEditModal(null)
+      load()
+    } catch (e) { alert(e.response?.data?.error || 'Lỗi') } finally { setEditSaving(false) }
+  }
   const f = (k) => (e) => setForm((prev) => ({ ...prev, [k]: e.target.value }))
   const fmtVnd = (n) => new Intl.NumberFormat('vi-VN').format(n || 0) + ' ₫'
   const inputCls = 'w-full rounded border border-green-950 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-950 placeholder:text-gray-400'
@@ -108,19 +157,19 @@ function HoaDonContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-gray-500">
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Ngày</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Bệnh Nhân</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Bác Sĩ</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Tổng Tiền</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Đã TT</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Còn Lại</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider">Trạng Thái</th>
-                  <th className="px-6 py-4 text-xs font-semibold tracking-wider text-right">Thao Tác</th>
-                </tr>
+                 <tr className="border-b border-gray-100 bg-gray-50 text-gray-500">
+                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Ngày</th>
+                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Bệnh Nhân</th>
+                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Bác Sĩ</th>
+                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Tổng Tiền</th>
+                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Giai Đoạn</th>
+                   <th className="px-6 py-4 text-xs font-semibold tracking-wider">Thanh Toán</th>
+                   <th className="px-6 py-4 text-xs font-semibold tracking-wider text-right">Thao Tác</th>
+                 </tr>
               </thead>
               <tbody>
                 {list.map((hd) => {
+                  const gd = giaiDoanMap[hd.trangThaiPhieu] || { label: hd.trangThaiPhieu, cls: 'bg-gray-100 text-gray-600' }
                   const ts = trangThaiMap[hd.trangThai] || { label: hd.trangThai, cls: 'bg-gray-100 text-gray-600' }
                   return (
                     <tr key={hd.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
@@ -128,19 +177,14 @@ function HoaDonContent() {
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{hd.tenBenhNhan}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{hd.tenBacSi}</td>
                       <td className="px-6 py-4 text-sm font-semibold text-gray-900">{fmtVnd(hd.tongTien)}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-green-600">{fmtVnd(hd.daThanhToan)}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-red-600">{fmtVnd(hd.tongTien - hd.daThanhToan)}</td>
-                      <td className="px-6 py-4"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${ts.cls}`}>{ts.label}</span></td>
+                      <td className="px-6 py-4"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${gd.cls}`}>{gd.label}</span></td>
+                      <td className="px-6 py-4">{hd.trangThaiPhieu === 'daXacNhan' ? <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${ts.cls}`}>{ts.label}</span> : <span className="text-xs text-gray-400">—</span>}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => openDetail(hd.id)} className="cursor-pointer p-1.5 text-gray-400 hover:text-green-950 transition-colors rounded hover:bg-gray-100">
-                            <Eye size={16}/>
-                          </button>
-                          {hd.trangThai !== 'daThanhToan' && user?.vaiTro !== 'bacSi' && (
-                            <button onClick={() => { setPayModal(hd); setPayAmount('') }} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-semibold rounded hover:bg-green-100 transition-colors">
-                              <CreditCard size={14}/>TT
-                            </button>
-                          )}
+                          <button onClick={() => openDetail(hd.id)} className="cursor-pointer p-1.5 text-gray-400 hover:text-green-950 transition-colors rounded hover:bg-gray-100"><Eye size={16}/></button>
+                          {hd.trangThaiPhieu === 'nhapPhieu' && (user?.vaiTro === 'admin' || user?.vaiTro === 'leTan') && (<button onClick={() => handleGuiBacSi(hd.id)} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded hover:bg-blue-100 transition-colors"><Send size={13}/>Gửi Bác Sĩ</button>)}
+                          {hd.trangThaiPhieu === 'choBacSi' && (user?.vaiTro === 'bacSi' || user?.vaiTro === 'admin') && (<button onClick={() => openEditServices(hd)} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded hover:bg-amber-100 transition-colors"><FilePen size={13}/>Chỉnh Sửa & Xác Nhận</button>)}
+                          {hd.trangThaiPhieu === 'daXacNhan' && hd.trangThai !== 'daThanhToan' && user?.vaiTro !== 'bacSi' && (<button onClick={() => { setPayModal(hd); setPayAmount('') }} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-semibold rounded hover:bg-green-100 transition-colors"><CreditCard size={14}/>Thu Tiền</button>)}
                         </div>
                       </td>
                     </tr>
@@ -252,24 +296,48 @@ function HoaDonContent() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setPayModal(null)}>
           <div className="bg-white border-2 border-green-950 rounded p-6 w-full max-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">Thanh Toán</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Thu Tiền</h2>
               <button onClick={() => setPayModal(null)} className="cursor-pointer w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-900 transition-colors">✕</button>
             </div>
-            <div className="bg-red-50 text-red-800 p-3 rounded text-sm mb-5 font-medium border border-red-100">
-              Số Tiền Còn Nợ Lại: {fmtVnd(payModal.tongTien - payModal.daThanhToan)}
-            </div>
+            <div className="bg-red-50 text-red-800 p-3 rounded text-sm mb-5 font-medium border border-red-100">Số Tiền Còn Nợ Lại: {fmtVnd(payModal.tongTien - payModal.daThanhToan)}</div>
             <form onSubmit={handlePay}>
-              <div className="mb-6">
-                <label className={labelCls}>Số Tiền Khách Thanh Toán (₫)</label>
-                <input required className={inputCls} type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder="Nhập Số Tiền..." max={payModal.tongTien - payModal.daThanhToan}/>
-              </div>
+              <div className="mb-6"><label className={labelCls}>Số Tiền Khách Thanh Toán (₫)</label><input required className={inputCls} type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder="Nhập Số Tiền..." max={payModal.tongTien - payModal.daThanhToan}/></div>
               <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
                 <button type="button" onClick={() => setPayModal(null)} className="cursor-pointer px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Hủy</button>
-                <button type="submit" className="cursor-pointer rounded border-2 border-green-950 bg-green-950 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950">
-                  Xác Nhận
-                </button>
+                <button type="submit" className="cursor-pointer rounded border-2 border-green-950 bg-green-950 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950">Xác Nhận</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {editModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border-2 border-green-950 rounded p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+              <h2 className="text-xl font-semibold text-gray-900">Chỉnh Sửa Dịch Vụ — {editModal.tenBenhNhan}</h2>
+              <button onClick={() => setEditModal(null)} className="cursor-pointer w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-900 transition-colors">✕</button>
+            </div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-gray-900">Danh Sách Dịch Vụ</span>
+              <button type="button" onClick={addEditChiTiet} disabled={editChiTiet.length >= dichVuList.length} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"><Plus size={14}/>Thêm Dịch Vụ</button>
+            </div>
+            <div className="space-y-3 mb-4">
+              {editChiTiet.map((ct, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <select className={`${inputCls} w-[50%] truncate`} value={ct.dichVuId} onChange={(e) => updateEditChiTiet(i, 'dichVuId', e.target.value)}>{dichVuList.filter(dv => !editChiTiet.some((c, idx) => idx !== i && c.dichVuId === dv.id)).map(dv => <option key={dv.id} value={dv.id}>{dv.tenDichVu}</option>)}</select>
+                  <input className={`${inputCls} w-[20%]`} type="number" min="1" value={ct.soLuong} onChange={(e) => updateEditChiTiet(i, 'soLuong', e.target.value)} placeholder="SL"/>
+                  <input className={`${inputCls} w-[25%]`} type="number" value={ct.donGia} onChange={(e) => updateEditChiTiet(i, 'donGia', e.target.value)} placeholder="Đơn Giá"/>
+                  <button type="button" onClick={() => removeEditChiTiet(i)} className="cursor-pointer p-2 text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"><X size={18}/></button>
+                </div>
+              ))}
+              {editChiTiet.length === 0 && <div className="text-sm text-gray-400 py-2">Chưa Có Dịch Vụ Nào</div>}
+            </div>
+            <div className="text-right text-lg font-semibold text-green-950 mb-6">Tổng Cộng: {fmtVnd(editChiTiet.reduce((s, ct) => s + ct.soLuong * ct.donGia, 0))}</div>
+            <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
+              <button type="button" onClick={() => setEditModal(null)} className="cursor-pointer px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Hủy</button>
+              <button type="button" onClick={() => handleSaveEditChiTiet(false)} disabled={editSaving} className="cursor-pointer rounded border-2 border-amber-600 bg-white px-4 py-2 text-sm font-semibold text-amber-700 transition-all hover:bg-amber-50 disabled:opacity-50">Lưu Dịch Vụ</button>
+              <button type="button" onClick={() => handleSaveEditChiTiet(true)} disabled={editSaving} className="cursor-pointer rounded border-2 border-green-950 bg-green-950 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950 disabled:opacity-50">{editSaving ? 'Đang Lưu...' : 'Lưu Và Xác Nhận'}</button>
+            </div>
           </div>
         </div>
       )}

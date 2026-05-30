@@ -1,7 +1,7 @@
 'use client'
 import { Plus, CalendarDays, Play, Check, X, Clock } from 'lucide-react'
 import { useEffect, useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import mainLayoutComp from '../../components/mainLayout'
 import api from '../../lib/api'
 const MainLayout = mainLayoutComp
@@ -13,6 +13,7 @@ const trangThaiMap = {
 }
 export default function LichHenPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [list, setList] = useState([])
   const [allBacSi, setAllBacSi] = useState([])
   const [benhNhanList, setBenhNhanList] = useState([])
@@ -23,10 +24,20 @@ export default function LichHenPage() {
   const [form, setForm] = useState({ benhNhanId: '', bacSiId: '', ngayGio: '', ghiChu: '' })
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
+  const [chiTiet, setChiTiet] = useState([])
+  const [dichVuList, setDichVuList] = useState([])
   const load = () => {
     setLoading(true)
     api.get('/lichHen', { params: { ngay: filterNgay } }).then((r) => { setList(r.data); setLoading(false) })
   }
+  useEffect(() => {
+    const pId = searchParams.get('benhNhanId')
+    if (pId && benhNhanList.length > 0) {
+      setForm({ benhNhanId: parseInt(pId), bacSiId: '', ngayGio: '', ghiChu: '' })
+      setChiTiet([])
+      setShowModal(true)
+    }
+  }, [searchParams, benhNhanList])
   useEffect(() => {
     load()
     const stored = localStorage.getItem('user')
@@ -36,6 +47,7 @@ export default function LichHenPage() {
     api.get('/bacSi').then((r) => setAllBacSi(r.data.filter(bs => bs.loaiNhanVien === 'bacSi' && bs.trangThai === 'hoatDong')))
     api.get('/benhNhan').then((r) => setBenhNhanList(r.data))
     api.get('/caLamViec').then((r) => setAllCa(r.data))
+    api.get('/dichVu').then((r) => setDichVuList(r.data.filter(d => d.trangThai === 'hoatDong')))
   }, [])
   const selectedDate = form.ngayGio ? form.ngayGio.slice(0, 10) : ''
   const selectedTime = form.ngayGio ? form.ngayGio.slice(11, 16) : ''
@@ -62,10 +74,11 @@ export default function LichHenPage() {
     if (!form.benhNhanId || (!form.bacSiId && user?.vaiTro !== 'bacSi') || !form.ngayGio) return alert('Vui Lòng Điền Đầy Đủ Thông Tin')
     if (!canSubmit) return alert(shiftStatus.msg)
     setSaving(true)
-    try { await api.post('/lichHen', form); setShowModal(false); load() } catch (e) { alert(e.response?.data?.error || 'Lỗi') } finally { setSaving(false) }
+    try { await api.post('/lichHen', { ...form, dichVu: chiTiet }); setShowModal(false); load() } catch (e) { alert(e.response?.data?.error || 'Lỗi') } finally { setSaving(false) }
   }
   const handleOpenModal = () => {
     setForm({ benhNhanId: '', bacSiId: '', ngayGio: '', ghiChu: '' })
+    setChiTiet([])
     setShowModal(true)
   }
   const handleStatus = async (id, trangThai, benhNhanId = null) => {
@@ -75,6 +88,24 @@ export default function LichHenPage() {
     } else { load() }
   }
   const handleCancel = async (id) => { if (!confirm('Hủy Lịch Hẹn Này?')) return; await api.delete(`/lichHen/${id}`); load() }
+  const addChiTiet = () => {
+    const usedIds = chiTiet.map(ct => ct.dichVuId)
+    const available = dichVuList.filter(dv => !usedIds.includes(dv.id))
+    if (!available.length) return
+    const dv = available[0]
+    setChiTiet((prev) => [...prev, { dichVuId: dv.id, tenDichVu: dv.tenDichVu, soLuong: 1, donGia: dv.donGia }])
+  }
+  const removeChiTiet = (i) => setChiTiet((prev) => prev.filter((_, idx) => idx !== i))
+  const updateChiTiet = (i, field, val) => {
+    setChiTiet((prev) => {
+      const updated = [...prev]
+      if (field === 'dichVuId') {
+        const dv = dichVuList.find((d) => d.id === parseInt(val))
+        updated[i] = { ...updated[i], dichVuId: parseInt(val), tenDichVu: dv?.tenDichVu, donGia: dv?.donGia || 0 }
+      } else { updated[i] = { ...updated[i], [field]: field === 'soLuong' ? parseInt(val) : parseFloat(val) } }
+      return updated
+    })
+  }
   const f = (k) => (e) => setForm((prev) => ({ ...prev, [k]: e.target.value }))
   const inputCls = 'w-full rounded border border-green-950 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-950 placeholder:text-gray-400'
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
@@ -125,10 +156,13 @@ export default function LichHenPage() {
       </div>
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border-2 border-green-950 rounded p-6 w-full max-w-md shadow-2xl">
-            <h2 className="mb-6 text-xl font-semibold text-gray-900">Đặt Lịch Hẹn Mới</h2>
+          <div className="bg-white border-2 border-green-950 rounded p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <h2 className="mb-6 text-xl font-semibold text-gray-900">Đặt Lịch Hẹn & Tạo Phiếu Khám</h2>
             <form onSubmit={handleSave} className="space-y-4">
-              <div><label className={labelCls}>Ngày & Giờ *</label><input required className={inputCls} type="datetime-local" value={form.ngayGio} onChange={f('ngayGio')}/></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className={labelCls}>Ngày & Giờ *</label><input required className={inputCls} type="datetime-local" value={form.ngayGio} onChange={f('ngayGio')}/></div>
+                <div><label className={labelCls}>Bệnh Nhân *</label><select required className={inputCls} value={form.benhNhanId} onChange={f('benhNhanId')}><option value="">Chọn Bệnh Nhân</option>{benhNhanList.map((bn) => <option key={bn.id} value={bn.id}>{bn.hoTen}</option>)}</select></div>
+              </div>
               {user?.vaiTro !== 'bacSi' && (
                 <div>
                   <label className={labelCls}>
@@ -151,12 +185,41 @@ export default function LichHenPage() {
                   {shiftStatus.msg}
                 </div>
               )}
-              <div><label className={labelCls}>Bệnh Nhân *</label><select required className={inputCls} value={form.benhNhanId} onChange={f('benhNhanId')}><option value="">Chọn Bệnh Nhân</option>{benhNhanList.map((bn) => <option key={bn.id} value={bn.id}>{bn.hoTen}</option>)}</select></div>
-              <div><label className={labelCls}>Ghi Chú *</label><textarea required className={inputCls} value={form.ghiChu} onChange={f('ghiChu')} placeholder="Lý Do Khám..." rows={3}/></div>
+              <div><label className={labelCls}>Ghi Chú / Chẩn Đoán Sơ Bộ *</label><textarea required className={inputCls} value={form.ghiChu} onChange={f('ghiChu')} placeholder="Lý Do Khám Hoặc Chẩn Đoán Ban Đầu..." rows={2}/></div>
+
+              <div className="bg-white border border-gray-200 rounded p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="text-sm font-semibold text-gray-900">Dịch Vụ Chỉ Định Ban Đầu</label>
+                  <button type="button" onClick={addChiTiet} disabled={chiTiet.length >= dichVuList.length} className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                    <Plus size={14}/>Thêm Dịch Vụ
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {chiTiet.map((ct, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <select className={`${inputCls} w-[50%] truncate`} value={ct.dichVuId} onChange={(e) => updateChiTiet(i, 'dichVuId', e.target.value)}>
+                        {dichVuList.filter(dv => !chiTiet.some((c, idx) => idx !== i && c.dichVuId === dv.id)).map(dv => <option key={dv.id} value={dv.id}>{dv.tenDichVu}</option>)}
+                      </select>
+                      <input className={`${inputCls} w-[15%]`} type="number" min="1" value={ct.soLuong} onChange={(e) => updateChiTiet(i, 'soLuong', e.target.value)} placeholder="SL"/>
+                      <input className={`${inputCls} w-[25%]`} type="number" value={ct.donGia} onChange={(e) => updateChiTiet(i, 'donGia', e.target.value)} placeholder="Đơn Giá"/>
+                      <button type="button" onClick={() => removeChiTiet(i)} className="cursor-pointer p-2 text-red-500 hover:bg-red-50 rounded transition-colors shrink-0">
+                        <X size={18}/>
+                      </button>
+                    </div>
+                  ))}
+                  {chiTiet.length === 0 && <div className="text-sm text-gray-400 py-2 text-center">Chưa Chọn Dịch Vụ Nào</div>}
+                </div>
+                {chiTiet.length > 0 && (
+                  <div className="text-right text-base font-semibold text-green-950 mt-4 border-t border-gray-100 pt-3">
+                    Tạm Tính: {new Intl.NumberFormat('vi-VN').format(chiTiet.reduce((s, c) => s + c.soLuong * c.donGia, 0)) + ' ₫'}
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
                 <button type="button" onClick={() => setShowModal(false)} className="cursor-pointer px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Hủy Bỏ</button>
-                <button type="submit" disabled={saving || !canSubmit} className="cursor-pointer rounded border-2 border-green-950 bg-green-950 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950 disabled:opacity-40 disabled:cursor-not-allowed">
-                  {saving ? 'Đang Lưu...' : 'Xác Nhận Đặt Lịch'}
+                <button type="submit" disabled={saving || !canSubmit} className="cursor-pointer rounded border-2 border-green-950 bg-green-950 px-6 py-2 text-sm font-semibold text-white transition-all hover:bg-white hover:text-green-950 disabled:opacity-40 disabled:cursor-not-allowed">
+                  {saving ? 'Đang Lưu...' : 'Xác Nhận Đặt Lịch & Tạo Phiếu'}
                 </button>
               </div>
             </form>

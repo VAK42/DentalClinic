@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import mainLayoutComp from '../../components/mainLayout'
 import api from '../../lib/api'
 const MainLayout = mainLayoutComp
-const THU_LABELS = [
+const thuLabels = [
   { value: 1, label: 'T2' },
   { value: 2, label: 'T3' },
   { value: 3, label: 'T4' },
@@ -13,25 +13,32 @@ const THU_LABELS = [
   { value: 6, label: 'T7' },
   { value: 0, label: 'CN' },
 ]
+const bangCapOptions = [
+  { value: 'cuNhan', label: 'Cử Nhân' },
+  { value: 'thacSy', label: 'Thạc Sỹ' },
+  { value: 'tienSi', label: 'Tiến Sĩ' },
+  { value: 'phoGiaoSu', label: 'Phó Giáo Sư' },
+  { value: 'giaoSu', label: 'Giáo Sư' },
+]
 export default function BacSiPage() {
   const [tab, setTab] = useState('nhanVien')
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ hoTen: '', chuyenKhoa: '', soDienThoai: '', email: '', luongCo: '', tyLeHoaHong: '', ngayBatDau: '', loaiNhanVien: 'bacSi' })
+  const [form, setForm] = useState({ hoTen: '', chuyenKhoa: '', soDienThoai: '', email: '', luongCo: '', tyLeHoaHong: '', ngayBatDau: '', loaiNhanVien: 'bacSi', bangCap: 'cuNhan' })
   const [editId, setEditId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [caList, setCaList] = useState([])
   const [caLoading, setCaLoading] = useState(false)
   const [showCaModal, setShowCaModal] = useState(false)
-  const [caForm, setCaForm] = useState({ bacSiId: '', thuTrongTuan: '', gioBatDau: '08:00', gioKetThuc: '17:00' })
+  const [caForm, setCaForm] = useState({ bacSiId: '', thuTrongTuan: '', gioBatDau: '08:00', gioKetThuc: '17:00', heSo: 1.0 })
   const [editCaId, setEditCaId] = useState(null)
   const [savingCa, setSavingCa] = useState(false)
   const loadNhanVien = () => { setLoading(true); api.get('/bacSi').then((r) => { setList(r.data); setLoading(false) }) }
   const loadCa = () => { setCaLoading(true); api.get('/caLamViec').then((r) => { setCaList(r.data); setCaLoading(false) }) }
   useEffect(() => { loadNhanVien(); loadCa() }, [])
-  const openAdd = () => { setForm({ hoTen: '', chuyenKhoa: '', soDienThoai: '', email: '', luongCo: '', tyLeHoaHong: '', ngayBatDau: '', loaiNhanVien: 'bacSi' }); setEditId(null); setShowModal(true) }
-  const openEdit = (bs) => { setForm({ hoTen: bs.hoTen, chuyenKhoa: bs.chuyenKhoa || '', soDienThoai: bs.soDienThoai || '', email: bs.email || '', luongCo: bs.luongCo, tyLeHoaHong: bs.tyLeHoaHong, ngayBatDau: bs.ngayBatDau || '', loaiNhanVien: bs.loaiNhanVien || 'bacSi' }); setEditId(bs.id); setShowModal(true) }
+  const openAdd = () => { setForm({ hoTen: '', chuyenKhoa: '', soDienThoai: '', email: '', luongCo: '', tyLeHoaHong: '', ngayBatDau: '', loaiNhanVien: 'bacSi', bangCap: 'cuNhan' }); setEditId(null); setShowModal(true) }
+  const openEdit = (bs) => { setForm({ hoTen: bs.hoTen, chuyenKhoa: bs.chuyenKhoa || '', soDienThoai: bs.soDienThoai || '', email: bs.email || '', luongCo: bs.luongCo, tyLeHoaHong: bs.tyLeHoaHong, ngayBatDau: bs.ngayBatDau || '', loaiNhanVien: bs.loaiNhanVien || 'bacSi', bangCap: bs.bangCap || 'cuNhan' }); setEditId(bs.id); setShowModal(true) }
   const handleSave = async (e) => {
     e.preventDefault()
     if (!form.hoTen.trim()) return alert('Vui Lòng Nhập Tên Nhân Viên')
@@ -45,7 +52,7 @@ export default function BacSiPage() {
   const bacSiOnly = list.filter(bs => bs.loaiNhanVien === 'bacSi' && bs.trangThai === 'hoatDong')
   const getCaForBacSi = (bacSiId, thu) => caList.find(c => c.bacSiId === bacSiId && c.thuTrongTuan === thu)
   const openCaModal = (bacSiId, thu, existingCa) => {
-    setCaForm({ bacSiId, thuTrongTuan: thu, gioBatDau: existingCa?.gioBatDau || '08:00', gioKetThuc: existingCa?.gioKetThuc || '17:00' })
+    setCaForm({ bacSiId, thuTrongTuan: thu, gioBatDau: existingCa?.gioBatDau || '08:00', gioKetThuc: existingCa?.gioKetThuc || '17:00', heSo: existingCa?.heSo || 1.0 })
     setEditCaId(existingCa?.id || null)
     setShowCaModal(true)
   }
@@ -59,9 +66,10 @@ export default function BacSiPage() {
   const f = (k) => (e) => setForm((prev) => ({ ...prev, [k]: e.target.value }))
   const fc = (k) => (e) => setCaForm((prev) => ({ ...prev, [k]: e.target.value }))
   const fmtVnd = (n) => new Intl.NumberFormat('vi-VN').format(n || 0) + ' ₫'
+  const bangCapLabel = (v) => bangCapOptions.find(o => o.value === v)?.label || 'Cử Nhân'
   const inputCls = 'w-full rounded border border-green-950 px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-950 placeholder:text-gray-400'
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
-  const thuLabel = (v) => THU_LABELS.find(t => t.value === v)?.label || ''
+  const thuLabel = (v) => thuLabels.find(t => t.value === v)?.label || ''
   return (
     <MainLayout
       title="Quản Lý Nhân Sự"
@@ -101,6 +109,7 @@ export default function BacSiPage() {
                   <tr className="border-b border-gray-100 bg-gray-50 text-gray-500">
                     <th className="px-6 py-4 text-xs font-semibold tracking-wider">Họ & Tên</th>
                     <th className="px-6 py-4 text-xs font-semibold tracking-wider">Loại</th>
+                    <th className="px-6 py-4 text-xs font-semibold tracking-wider">Học Vị</th>
                     <th className="px-6 py-4 text-xs font-semibold tracking-wider">Chuyên Khoa</th>
                     <th className="px-6 py-4 text-xs font-semibold tracking-wider">Điện Thoại</th>
                     <th className="px-6 py-4 text-xs font-semibold tracking-wider">Lương Cố Định</th>
@@ -116,6 +125,7 @@ export default function BacSiPage() {
                           {bs.loaiNhanVien === 'bacSi' ? 'Bác Sĩ' : 'Lễ Tân'}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{bangCapLabel(bs.bangCap)}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{bs.chuyenKhoa || '—'}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{bs.soDienThoai || '—'}</td>
                       <td className="px-6 py-4 text-sm font-semibold text-green-950">{fmtVnd(bs.luongCo)}</td>
@@ -150,7 +160,7 @@ export default function BacSiPage() {
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50 text-gray-500">
                     <th className="px-6 py-4 text-xs font-semibold tracking-wider sticky left-0 bg-gray-50">Bác Sĩ</th>
-                    {THU_LABELS.map(t => (
+                    {thuLabels.map(t => (
                       <th key={t.value} className="px-4 py-4 text-xs font-semibold tracking-wider text-center">{t.label}</th>
                     ))}
                   </tr>
@@ -159,7 +169,7 @@ export default function BacSiPage() {
                   {bacSiOnly.map((bs) => (
                     <tr key={bs.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900 sticky left-0 bg-white">{bs.hoTen}</td>
-                      {THU_LABELS.map(t => {
+                      {thuLabels.map(t => {
                         const ca = getCaForBacSi(bs.id, t.value)
                         return (
                           <td key={t.value} className="px-4 py-4 text-center">
@@ -203,6 +213,12 @@ export default function BacSiPage() {
                   <option value="leTan">Lễ Tân</option>
                 </select>
               </div>
+              <div className="col-span-2">
+                <label className={labelCls}>Học Vị *</label>
+                <select className={inputCls} value={form.bangCap} onChange={f('bangCap')}>
+                  {bangCapOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
               <div><label className={labelCls}>Chuyên Khoa / Vai Trò *</label><input required className={inputCls} value={form.chuyenKhoa} onChange={f('chuyenKhoa')} placeholder="Phục Hình / Lễ Tân..."/></div>
               <div><label className={labelCls}>Điện Thoại *</label><input required className={inputCls} value={form.soDienThoai} onChange={f('soDienThoai')} placeholder="09..."/></div>
               <div><label className={labelCls}>Email *</label><input required className={inputCls} type="email" value={form.email} onChange={f('email')} placeholder="nv@example.com"/></div>
@@ -230,6 +246,7 @@ export default function BacSiPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div><label className={labelCls}>Giờ Bắt Đầu *</label><input required type="time" className={inputCls} value={caForm.gioBatDau} onChange={fc('gioBatDau')}/></div>
                 <div><label className={labelCls}>Giờ Kết Thúc *</label><input required type="time" className={inputCls} value={caForm.gioKetThuc} onChange={fc('gioKetThuc')}/></div>
+                <div className="col-span-2"><label className={labelCls}>Hệ Số Ca Làm Việc *</label><input required type="number" step="0.1" className={inputCls} value={caForm.heSo} onChange={fc('heSo')}/></div>
               </div>
               <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
                 <button type="button" onClick={() => setShowCaModal(false)} className="cursor-pointer px-4 py-2 rounded text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Hủy</button>
